@@ -139,7 +139,7 @@ fi
 
 if [[ -f "$MOUNT_DIR/boot/grub/grub.cfg" && -f overlay/boot/grub/grub.cfg.patch ]]; then
   echo "Applying GRUB patch..."
-  sudo cat overlay/boot/grub/grub.cfg.patch >> $MOUNT_DIR/boot/grub/grub.cfg
+  cat overlay/boot/grub/grub.cfg.patch | sudo tee -a $MOUNT_DIR/boot/grub/grub.cfg
 fi
 
 ############################################################
