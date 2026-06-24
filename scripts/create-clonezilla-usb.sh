@@ -6,7 +6,6 @@ set -euo pipefail
 ############################################################
 
 WORKDIR="$(pwd)/build"
-ISO_PATH="$WORKDIR/clonezilla.iso"
 MOUNT_DIR="/mnt/clonezilla_usb"
 
 mkdir -p "$WORKDIR"
@@ -67,10 +66,16 @@ URL="https://sourceforge.net/projects/clonezilla/files/clonezilla_live_stable/${
 
 echo "Version: $VERSION"
 
-wget -O "$ISO_PATH" "$URL"
+ISO_FILE="$WORKDIR/$ISO_NAME"
 
-file "$ISO_PATH" | grep -q "ISO 9660" || {
-  echo "ERROR: Invalid ISO"
+if [ -f "$ISO_FILE" ]; then
+    echo "Latest ISO already downloaded"
+else
+    wget -O "$ISO_FILE" "$URL"
+fi
+
+file "$ISO_FILE" | grep -q "ISO 9660" || {
+  echo "ERROR: Invalid ISO. Delete the file at $WORKDIR/$ISO_NAME and try again"
   exit 1
 }
 
@@ -116,7 +121,7 @@ echo "[5/5] Extracting Clonezilla ISO to USB..."
 sudo apt-get update >/dev/null 2>&1 || true
 command -v 7z >/dev/null 2>&1 || sudo apt-get install -y p7zip-full
 
-sudo 7z x "$ISO_PATH" -o"$MOUNT_DIR" >/dev/null
+sudo 7z x "$ISO_FILE" -o"$MOUNT_DIR" >/dev/null
 
 ############################################################
 # 8. FINALIZE
