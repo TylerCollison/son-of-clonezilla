@@ -12,7 +12,7 @@ MOUNT_DIR="/mnt/clonezilla_usb"
 mkdir -p "$WORKDIR"
 
 echo "========================================"
-echo " SoCZ USB Builder"
+echo " Clonezilla USB Builder (FAT32 mode)"
 echo "========================================"
 
 ############################################################
@@ -52,7 +52,7 @@ read -rp "Type YES to continue: " CONFIRM
 # 3. DOWNLOAD CLONEZILLA
 ############################################################
 
-echo "[1/6] Fetching latest Clonezilla..."
+echo "[1/5] Fetching latest Clonezilla..."
 
 VERSION=$(curl -fsSL \
   "https://sourceforge.net/projects/clonezilla/files/clonezilla_live_stable/" \
@@ -78,7 +78,7 @@ file "$ISO_PATH" | grep -q "ISO 9660" || {
 # 4. WIPE + PARTITION USB (FAT32)
 ############################################################
 
-echo "[2/6] Partitioning USB (MSDOS)..."
+echo "[2/5] Partitioning USB (MSDOS)..."
 
 sudo wipefs -a "$USB_DEVICE"
 
@@ -94,7 +94,7 @@ PARTITION="${USB_DEVICE}1"
 # 5. FORMAT USB
 ############################################################
 
-echo "[3/6] Formatting USB to FAT32..."
+echo "[3/5] Formatting USB to FAT32..."
 
 sudo mkfs.vfat -F32 "$PARTITION"
 
@@ -102,7 +102,7 @@ sudo mkfs.vfat -F32 "$PARTITION"
 # 6. MOUNT USB
 ############################################################
 
-echo "[4/6] Mounting USB..."
+echo "[4/5] Mounting USB..."
 
 sudo mkdir -p "$MOUNT_DIR"
 sudo mount "$PARTITION" "$MOUNT_DIR"
@@ -111,7 +111,7 @@ sudo mount "$PARTITION" "$MOUNT_DIR"
 # 7. EXTRACT ISO TO USB
 ############################################################
 
-echo "[5/6] Extracting Clonezilla ISO to USB..."
+echo "[5/5] Extracting Clonezilla ISO to USB..."
 
 sudo apt-get update >/dev/null 2>&1 || true
 command -v 7z >/dev/null 2>&1 || sudo apt-get install -y p7zip-full
@@ -119,26 +119,7 @@ command -v 7z >/dev/null 2>&1 || sudo apt-get install -y p7zip-full
 sudo 7z x "$ISO_PATH" -o"$MOUNT_DIR" >/dev/null
 
 ############################################################
-# 8. INJECT CUSTOM SCRIPTS
-############################################################
-
-echo "[6/6] Adding SoCZ files..."
-
-if [[ -d overlay/live ]]; then
-  sudo cp -r overlay/live/ "$MOUNT_DIR" || true
-fi
-
-############################################################
-# 9. OPTIONAL GRUB PATCH
-############################################################
-
-if [[ -f "$MOUNT_DIR/boot/grub/grub.cfg" && -f overlay/boot/grub/grub.cfg.patch ]]; then
-  echo "Applying GRUB patch..."
-  sudo patch "$MOUNT_DIR/boot/grub/grub.cfg" < overlay/boot/grub/grub.cfg.patch || true
-fi
-
-############################################################
-# 10. FINALIZE
+# 8. FINALIZE
 ############################################################
 
 sync
