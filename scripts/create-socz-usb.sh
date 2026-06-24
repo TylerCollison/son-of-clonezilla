@@ -8,22 +8,24 @@ set -euo pipefail
 WORKDIR="$(pwd)/build"
 ISO_PATH="$WORKDIR/clonezilla.iso"
 
+MOUNT_DIR="/mnt/clonezilla_usb"
+
 mkdir -p "$WORKDIR"
 
 echo "========================================"
-echo " Clonezilla USB Custom Builder"
+echo " Clonezilla USB Builder (Stable Mode)"
 echo "========================================"
 
 ############################################################
-# 1. SELECT USB DEVICE (WIZARD OR ARG)
+# 1. USB DEVICE WIZARD
 ############################################################
 
 USB_DEVICE="${1:-}"
 
 if [[ -z "$USB_DEVICE" ]]; then
   echo ""
-  echo "No USB device provided as argument."
-  echo "Detecting removable devices..."
+  echo "No USB device provided."
+  echo "Detected block devices:"
   echo ""
 
   lsblk -dpno NAME,SIZE,MODEL,TRAN | grep -E "usb|sd" || true
@@ -32,42 +34,35 @@ if [[ -z "$USB_DEVICE" ]]; then
   read -rp "Enter target USB device (e.g. /dev/sdb): " USB_DEVICE
 fi
 
-# Validate device exists
 if [[ ! -b "$USB_DEVICE" ]]; then
-  echo "ERROR: $USB_DEVICE is not a valid block device."
+  echo "ERROR: Invalid block device: $USB_DEVICE"
   exit 1
 fi
 
 ############################################################
-# 2. DESTRUCTIVE WARNING
+# 2. DESTRUCTIVE CONFIRMATION
 ############################################################
 
 echo ""
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-echo " WARNING: DESTRUCTIVE OPERATION "
+echo " WARNING: THIS WILL ERASE THE USB DEVICE"
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo ""
-echo "Target device: $USB_DEVICE"
-echo ""
-echo "THIS WILL COMPLETELY ERASE THE DEVICE ABOVE."
-echo "ALL DATA ON IT WILL BE LOST."
+echo "Target: $USB_DEVICE"
 echo ""
 
-read -rp "Type YES to continue, anything else to abort: " CONFIRM
+read -rp "Type YES to continue: " CONFIRM
 
 if [[ "$CONFIRM" != "YES" ]]; then
   echo "Aborted."
   exit 1
 fi
 
-echo "Proceeding..."
-echo ""
-
 ############################################################
-# 3. GET LATEST CLONEZILLA
+# 3. FETCH LATEST CLONEZILLA
 ############################################################
 
-echo "[1/5] Fetching latest Clonezilla version..."
+echo "[1/4] Fetching latest Clonezilla version..."
 
 VERSION=$(curl -fsSL \
   "https://sourceforge.net/projects/clonezilla/files/clonezilla_live_stable/" \
@@ -86,7 +81,7 @@ echo "Version: $VERSION"
 # 4. DOWNLOAD ISO
 ############################################################
 
-echo "[2/5] Downloading ISO..."
+echo "[2/4] Downloading ISO..."
 
 wget \
   --content-disposition \
@@ -95,7 +90,7 @@ wget \
   "$URL"
 
 file "$ISO_PATH" | grep -q "ISO 9660" || {
-  echo "ERROR: Invalid ISO"
+  echo "ERROR: Download failed or invalid ISO"
   exit 1
 }
 
@@ -103,7 +98,7 @@ file "$ISO_PATH" | grep -q "ISO 9660" || {
 # 5. WRITE ISO TO USB
 ############################################################
 
-echo "[3/5] Writing ISO to USB (THIS WILL ERASE DEVICE)..."
+echo "[3/4] Writing ISO to USB (DD)..."
 
 sync
 
@@ -114,44 +109,68 @@ sync
 echo "Write complete."
 
 ############################################################
-# MOUNT ISO (NOT USB)
+# 6. DETECT USB PARTITION (CRITICAL FIX)
 ############################################################
 
-echo "[4/5] Mounting ISO (loop device)..."
+echo "[4/4] Detecting mounted filesystem..."
 
-ISO_MOUNT="/mnt/clonezilla_iso"
-sudo mkdir -p "$ISO_MOUNT"
+sleep 5
 
-sudo mount -o loop "$ISO_PATH" "$ISO_MOUNT"
+lsblk -f "$USB_DEVICE"
 
-############################################################
-# COPY CUSTOM FILES INTO USB AFTER DD IS DONE
-############################################################
+PARTITION=$(lsblk -lnpo NAME,FSTYPE "$USB_DEVICE" \
+  | awk '$2=="vfat" || $2=="iso9660" {print $1; exit}')
 
-echo "[5/5] Injecting scripts onto USB..."
+if [[ -z "$PARTITION" ]]; then
+  echo ""
+  echo "ERROR: No mountable partition found on USB."
+  echo "Run: lsblk -f"
+  exit 1
+fi
 
-USB_MOUNT="/mnt/usb_live"
-sudo mkdir -p "$USB_MOUNT"
-
-# try auto-detect USB partition
-PARTITION=$(lsblk -lnpo NAME "$USB_DEVICE" | tail -n1)
-
-sudo mount "$PARTITION" "$USB_MOUNT"
-
-sudo mkdir -p "$USB_MOUNT/live/custom-scripts"
-sudo cp -r overlay/live/* "$USB_MOUNT/live/custom-scripts/" || true
+echo "Using partition: $PARTITION"
 
 ############################################################
-# 8. CLEANUP
+# 7. MOUNT USB
+############################################################
+
+echo "Mounting USB..."
+
+sudo mkdir -p "$MOUNT_DIR"
+sudo mount "$PARTITION" "$MOUNT_DIR"
+
+############################################################
+# 8. INJECT CUSTOM FILES
+############################################################
+
+echo "Injecting custom scripts..."
+
+if [[ -d overlay/live ]]; then
+  sudo mkdir -p "$MOUNT_DIR/live/custom-scripts"
+  sudo cp -r overlay/live/* "$MOUNT_DIR/live/custom-scripts/" || true
+fi
+
+############################################################
+# 9. OPTIONAL GRUB PATCH
+############################################################
+
+if [[ -f overlay/boot/grub/grub.cfg.patch ]]; then
+  echo "Applying GRUB patch..."
+  sudo patch -d "$MOUNT_DIR" -p0 < overlay/boot/grub/grub.cfg.patch || true
+fi
+
+sudo sync
+
+############################################################
+# 10. CLEANUP
 ############################################################
 
 echo "Unmounting USB..."
 
-sudo umount "$ISO_MOUNT"
-sudo umount "$USB_MOUNT"
+sudo umount "$MOUNT_DIR"
 
 echo ""
 echo "========================================"
 echo " SUCCESS"
-echo " USB ready: $USB_DEVICE"
+echo " USB READY: $USB_DEVICE"
 echo "========================================"
