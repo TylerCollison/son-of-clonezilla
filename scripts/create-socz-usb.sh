@@ -134,12 +134,12 @@ if [[ -d overlay/live ]]; then
 fi
 
 ############################################################
-# 9. OPTIONAL GRUB PATCH
+# 9. GRUB PATCH
 ############################################################
 
 if [[ -f "$MOUNT_DIR/boot/grub/grub.cfg" && -f overlay/boot/grub/grub.cfg.patch ]]; then
   echo "Applying GRUB patch..."
-  sudo patch "$MOUNT_DIR/boot/grub/grub.cfg" < overlay/boot/grub/grub.cfg.patch || true
+  sudo cat overlay/boot/grub/grub.cfg.patch >> $MOUNT_DIR/boot/grub/grub.cfg
 fi
 
 ############################################################
