@@ -6,13 +6,12 @@ set -euo pipefail
 ############################################################
 
 WORKDIR="$(pwd)/build"
-ISO_PATH="$WORKDIR/clonezilla.iso"
 MOUNT_DIR="/mnt/clonezilla_usb"
 
 mkdir -p "$WORKDIR"
 
 echo "========================================"
-echo " SoCZ USB Builder"
+echo " SoCZ USB Builder "
 echo "========================================"
 
 ############################################################
@@ -52,7 +51,7 @@ read -rp "Type YES to continue: " CONFIRM
 # 3. DOWNLOAD CLONEZILLA
 ############################################################
 
-echo "[1/6] Fetching latest Clonezilla..."
+echo "[1/5] Fetching latest Clonezilla..."
 
 VERSION=$(curl -fsSL \
   "https://sourceforge.net/projects/clonezilla/files/clonezilla_live_stable/" \
@@ -67,10 +66,16 @@ URL="https://sourceforge.net/projects/clonezilla/files/clonezilla_live_stable/${
 
 echo "Version: $VERSION"
 
-wget -O "$ISO_PATH" "$URL"
+ISO_FILE="$WORKDIR/$ISO_NAME"
 
-file "$ISO_PATH" | grep -q "ISO 9660" || {
-  echo "ERROR: Invalid ISO"
+if [ -f "$ISO_FILE" ]; then
+    echo "Latest ISO already downloaded"
+else
+    wget -O "$ISO_FILE" "$URL"
+fi
+
+file "$ISO_FILE" | grep -q "ISO 9660" || {
+  echo "ERROR: Invalid ISO. Delete the file at $WORKDIR/$ISO_NAME and try again"
   exit 1
 }
 
