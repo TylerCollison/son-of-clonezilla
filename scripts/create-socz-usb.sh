@@ -114,37 +114,32 @@ sync
 echo "Write complete."
 
 ############################################################
-# 6. MOUNT USB
+# MOUNT ISO (NOT USB)
 ############################################################
 
-echo "[4/5] Mounting USB..."
+echo "[4/5] Mounting ISO (loop device)..."
 
-sleep 5
+ISO_MOUNT="/mnt/clonezilla_iso"
+sudo mkdir -p "$ISO_MOUNT"
 
-PARTITION="${USB_DEVICE}1"
-
-MOUNT_DIR="/mnt/clonezilla_usb"
-sudo mkdir -p "$MOUNT_DIR"
-
-sudo mount "$PARTITION" "$MOUNT_DIR"
+sudo mount -o loop "$ISO_PATH" "$ISO_MOUNT"
 
 ############################################################
-# 7. APPLY CUSTOM FILES
+# COPY CUSTOM FILES INTO USB AFTER DD IS DONE
 ############################################################
 
-echo "[5/5] Injecting custom scripts..."
+echo "[5/5] Injecting scripts onto USB..."
 
-if [[ -d overlay/live ]]; then
-  sudo mkdir -p "$MOUNT_DIR/live/custom-scripts"
-  sudo cp -r overlay/live/* "$MOUNT_DIR/live/custom-scripts/" || true
-fi
+USB_MOUNT="/mnt/usb_live"
+sudo mkdir -p "$USB_MOUNT"
 
-if [[ -f overlay/boot/grub/grub.cfg.patch ]]; then
-  echo "Applying GRUB patch..."
-  sudo patch -d "$MOUNT_DIR" -p0 < overlay/boot/grub/grub.cfg.patch || true
-fi
+# try auto-detect USB partition
+PARTITION=$(lsblk -lnpo NAME "$USB_DEVICE" | tail -n1)
 
-sudo sync
+sudo mount "$PARTITION" "$USB_MOUNT"
+
+sudo mkdir -p "$USB_MOUNT/live/custom-scripts"
+sudo cp -r overlay/live/* "$USB_MOUNT/live/custom-scripts/" || true
 
 ############################################################
 # 8. CLEANUP
@@ -152,7 +147,8 @@ sudo sync
 
 echo "Unmounting USB..."
 
-sudo umount "$MOUNT_DIR"
+sudo umount "$ISO_MOUNT"
+sudo umount "$USB_MOUNT"
 
 echo ""
 echo "========================================"
