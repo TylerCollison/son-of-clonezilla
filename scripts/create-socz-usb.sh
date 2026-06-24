@@ -116,7 +116,7 @@ echo "[5/5] Extracting Clonezilla ISO..."
 sudo apt-get update >/dev/null 2>&1 || true
 command -v 7z >/dev/null 2>&1 || sudo apt-get install -y p7zip-full
 
-7z x "$ISO_PATH" -o"$MOUNT_DIR" >/dev/null
+sudo 7z x "$ISO_PATH" -o"$MOUNT_DIR" >/dev/null
 
 ############################################################
 # 8. INJECT CUSTOM SCRIPTS
