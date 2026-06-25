@@ -174,6 +174,30 @@ if bash "./createBasePartition.sh" "$targetDisk" "$[$oldPartitionSize + 4096]" "
   echo "Adding grub entry for new partition"
   bash "./restoreGrub.sh" "$IMAGE_REPO_PATH/$image" "$BOOT_PARTITION_PATH" "$targetPartitionPath"
 
+  # Ask if the user wants to update GRUB configuration
+  read -p "Do you want to update the GRUB configuration in the partition?" -r
+  echo    # Move to a new line
+  if [[ $REPLY =~ ^[Yy]$ ]]
+  then
+    if bash "./update-grub-chroot.sh" "$targetPartitionPath"; then
+      echo "GRUB configuration updated successfully"
+    else
+      echo "Warning: GRUB configuration update failed"
+    fi
+  fi
+
+  # Ask if the user wants to update fstab configuration
+  read -p "Do you want to update /etc/fstab with the new partition UUID?" -r
+  echo    # Move to a new line
+  if [[ $REPLY =~ ^[Yy]$ ]]
+  then
+    if bash "./update-fstab.sh" "$targetPartitionPath"; then
+      echo "fstab updated successfully"
+    else
+      echo "Warning: fstab update failed"
+    fi
+  fi
+
   # Ask if the user wants to add Windows boot files
   read -p "Do you want to add Windows EFI boot files to the partition? " -r
   echo    # Move to a new line
