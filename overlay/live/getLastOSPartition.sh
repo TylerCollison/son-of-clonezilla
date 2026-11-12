@@ -9,4 +9,4 @@ fi
 
 pathToManagedDisk="$1"
 
-lsblk -lano PATH | grep "$pathToManagedDisk" | sort | tail -n 1
+lsblk -lnpo PATH,TYPE,PKNAME | awk -v d="$pathToManagedDisk" '$2 == "part" && $3 == d { print $1 }' | sort -V | tail -n 1
